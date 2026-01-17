@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Linear Regression MSE Practice</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --text: #e5e7eb;
+        --subtle: #9ca3af;
+        --accent: #22c55e;
+        --accent-2: #60a5fa;
+        --warn: #f59e0b;
+        --border: #1f2937;
+        --muted: #374151;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
+          Cantarell, Noto Sans, Oxygen, Fira Sans, Droid Sans, Helvetica Neue,
+          Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        line-height: 1.45;
+      }
+      header {
+        padding: 24px 16px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
+      }
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px 16px 60px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+      }
+      p.lead {
+        margin: 0;
+        color: var(--subtle);
+      }
+      .controls, .question, .answer, .help {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        margin-top: 16px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      label { display: block; font-size: 13px; color: var(--subtle); margin-bottom: 6px; }
+      input[type="number"], select {
+        width: 100%;
+        padding: 10px 12px;
+        color: var(--text);
+        background: #0b1220;
+        border: 1px solid var(--muted);
+        border-radius: 8px;
+      }
+      .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      button {
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--muted);
+        background: #0b1220;
+        color: var(--text);
+        cursor: pointer;
+      }
+      button.primary { border-color: transparent; background: var(--accent); color: #052e16; font-weight: 600; }
+      button.secondary { border-color: var(--muted); background: #0b1220; }
+      button.warn { background: var(--warn); color: #111827; border-color: transparent; font-weight: 600; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .weights { background: #0b1220; border: 1px dashed var(--muted); padding: 10px; border-radius: 8px; }
+      textarea {
+        width: 100%;
+        min-height: 220px;
+        resize: vertical;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--muted);
+        background: #0b1220;
+        color: var(--text);
+      }
+      .muted { color: var(--subtle); }
+      .answer p { margin: 8px 0; }
+      .katex-block { overflow-x: auto; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <h1>Linear Regression MSE Practice</h1>
+      </div>
+    </header>
+    <main class="container">
+      <section class="controls">
+        <div class="grid">
+          <div>
+            <label for="rows">Rows (1-20)</label>
+            <input id="rows" type="number" min="1" max="20" value="6" />
+          </div>
+          <div>
+            <label for="features">Features (2-5)</label>
+            <input id="features" type="number" min="2" max="5" value="3" />
+          </div>
+          <div>
+            <label for="valueRange">Value range for X, Y</label>
+            <select id="valueRange">
+              <option value="small" selected>Small integers (0..9)</option>
+              <option value="medium">Medium integers (−10..10)</option>
+              <option value="decimal">Small decimals (−5.0..5.0)</option>
+            </select>
+          </div>
+        </div>
+        <div class="btns">
+          <button id="btn-generate" class="primary">New Question</button>
+        </div>
+      </section>
+
+      <section class="question">
+        <h3 style="margin-top:0">Question</h3>
+        <p class="muted">Use the weights and bias to compute predictions, then the MSE vs Y.</p>
+        <div id="weights" class="weights mono"></div>
+        <div style="margin-top:12px">
+          <label class="muted">CSV (copyable)</label>
+          <textarea id="csv" class="mono" readonly></textarea>
+        </div>
+        <div class="btns" style="margin-top: 10px;">
+          <button id="btn-copy" class="secondary">Copy CSV</button>
+          <button id="btn-reveal" class="warn">Reveal Answer</button>
+        </div>
+      </section>
+
+      <section class="answer" id="answer" style="display:none">
+        <h3 style="margin-top:0">Answer</h3>
+        <div id="mse" class="mono" style="font-size:18px"></div>
+      </section>
+
+      
+    </main>
+
+    <script>
+      // Utility functions
+      const rndInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+      const rndFloat = (min, max, dp = 1) => {
+        const v = Math.random() * (max - min) + min;
+        const p = Math.pow(10, dp);
+        return Math.round(v * p) / p;
+      };
+
+      function randomWeights(k) {
+        // Choose small, student-friendly values
+        const modes = [
+          () => rndInt(-3, 3), // integers
+          () => rndFloat(-3, 3, 1), // one decimal
+        ];
+        const pick = modes[rndInt(0, modes.length - 1)];
+        const w = Array.from({ length: k }, () => pick());
+        const b = pick();
+        return { w, b };
+      }
+
+      function genRow(k, valueMode) {
+        const xs = [];
+        switch (valueMode) {
+          case 'small':
+            for (let i = 0; i < k; i++) xs.push(rndInt(0, 9));
+            return { xs, y: rndInt(0, 20) };
+          case 'medium':
+            for (let i = 0; i < k; i++) xs.push(rndInt(-10, 10));
+            return { xs, y: rndInt(-10, 10) };
+          case 'decimal':
+            for (let i = 0; i < k; i++) xs.push(rndFloat(-5, 5, 1));
+            return { xs, y: rndFloat(-5, 5, 1) };
+        }
+      }
+
+      function addModerateNoise(y) {
+        // Moderate noise: ~Uniform(-2, 2), rounded to one decimal
+        return typeof y === 'number' ? Math.round((y + rndFloat(-2, 2, 1)) * 10) / 10 : y;
+      }
+
+      function toCSV(headers, rows) {
+        const lines = [];
+        lines.push(headers.join(','));
+        for (const r of rows) lines.push(r.join(','));
+        return lines.join('\n');
+      }
+
+      function dot(a, b) { return a.reduce((s, v, i) => s + v * b[i], 0); }
+
+      function formatNum(v) {
+        return Number.isInteger(v) ? String(v) : v.toFixed(2);
+      }
+
+      function generateQuestion() {
+        const n = Math.max(1, Math.min(20, Number(document.getElementById('rows').value) || 6));
+        const k = Math.max(2, Math.min(5, Number(document.getElementById('features').value) || 3));
+        const valueMode = document.getElementById('valueRange').value;
+
+        const { w, b } = randomWeights(k);
+        const headers = Array.from({ length: k }, (_, i) => `X${i + 1}`).concat('Y');
+
+        const data = [];
+        for (let i = 0; i < n; i++) {
+          const r = genRow(k, valueMode);
+          const baseY = dot(r.xs, w) + b;
+          r.y = addModerateNoise(baseY);
+          data.push(r);
+        }
+
+        // Prepare CSV rows
+        const rows = data.map(r => [...r.xs.map(formatNum), formatNum(r.y)]);
+        const csv = toCSV(headers, rows);
+
+        // Render weights and bias
+        const weightsDiv = document.getElementById('weights');
+        weightsDiv.textContent = `Weights: [ ${w.map(formatNum).join(', ')} ]   Bias: ${formatNum(b)}`;
+
+        // Render CSV
+        const csvEl = document.getElementById('csv');
+        csvEl.value = csv;
+
+        // Store for answer
+        window.__question = { k, w, b, headers, data, csv };
+
+        // Reset answer
+        document.getElementById('answer').style.display = 'none';
+        document.getElementById('mse').textContent = '';
+      }
+
+      function revealAnswer() {
+        const q = window.__question;
+        if (!q) return;
+        const { w, b, data } = q;
+        let sse = 0;
+        for (let i = 0; i < data.length; i++) {
+          const yhat = dot(data[i].xs, w) + b;
+          const e = data[i].y - yhat;
+          sse += e * e;
+        }
+        const mse = sse / data.length;
+
+        // Render answer
+        const ans = document.getElementById('answer');
+        ans.style.display = 'block';
+        document.getElementById('mse').textContent = `MSE = ${mse.toFixed(4)}`;
+      }
+
+      async function copyCSV() {
+        const csv = document.getElementById('csv').value;
+        try {
+          await navigator.clipboard.writeText(csv);
+          const btn = document.getElementById('btn-copy');
+          const prev = btn.textContent;
+          btn.textContent = 'Copied!';
+          setTimeout(() => (btn.textContent = prev), 900);
+        } catch (e) {
+          // Fallback select
+          const ta = document.getElementById('csv');
+          ta.removeAttribute('readonly');
+          ta.select();
+          document.execCommand('copy');
+          ta.setAttribute('readonly', 'readonly');
+        }
+      }
+
+      // Wire up
+      document.getElementById('btn-generate').addEventListener('click', generateQuestion);
+      document.getElementById('btn-reveal').addEventListener('click', revealAnswer);
+      document.getElementById('btn-copy').addEventListener('click', copyCSV);
+
+      // Initial question
+      generateQuestion();
+    </script>
+  </body>
+  </html>
