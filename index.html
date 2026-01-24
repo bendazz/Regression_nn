@@ -108,16 +108,8 @@
             <input id="rows" type="number" min="1" max="20" value="6" />
           </div>
           <div>
-            <label for="features">Features (2-5)</label>
-            <input id="features" type="number" min="2" max="5" value="3" />
-          </div>
-          <div>
-            <label for="valueRange">Value range for X, Y</label>
-            <select id="valueRange">
-              <option value="small" selected>Small integers (0..9)</option>
-              <option value="medium">Medium integers (−10..10)</option>
-              <option value="decimal">Small decimals (−5.0..5.0)</option>
-            </select>
+            <label for="features">Features (1-5)</label>
+            <input id="features" type="number" min="1" max="5" value="3" />
           </div>
         </div>
         <div class="btns">
@@ -162,9 +154,26 @@
           () => rndInt(-3, 3), // integers
           () => rndFloat(-3, 3, 1), // one decimal
         ];
-        const pick = modes[rndInt(0, modes.length - 1)];
-        const w = Array.from({ length: k }, () => pick());
-        const b = pick();
+        const modeIndex = rndInt(0, modes.length - 1);
+        const pick = modes[modeIndex];
+        const isIntMode = modeIndex === 0;
+
+        function nonZeroSample() {
+          let v = 0;
+          let tries = 0;
+          while (v === 0 && tries < 12) {
+            v = pick();
+            tries++;
+          }
+          if (v === 0) {
+            const sign = Math.random() < 0.5 ? -1 : 1;
+            v = sign * (isIntMode ? 1 : 0.1);
+          }
+          return v;
+        }
+
+        const w = Array.from({ length: k }, () => nonZeroSample());
+        const b = nonZeroSample();
         return { w, b };
       }
 
@@ -203,8 +212,8 @@
 
       function generateQuestion() {
         const n = Math.max(1, Math.min(20, Number(document.getElementById('rows').value) || 6));
-        const k = Math.max(2, Math.min(5, Number(document.getElementById('features').value) || 3));
-        const valueMode = document.getElementById('valueRange').value;
+        const k = Math.max(1, Math.min(5, Number(document.getElementById('features').value) || 3));
+        const valueMode = 'small'; // fixed to small integers for simplicity
 
         const { w, b } = randomWeights(k);
         const headers = Array.from({ length: k }, (_, i) => `X${i + 1}`).concat('Y');

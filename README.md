@@ -22,16 +22,17 @@ Quick Start
 2. Visit http://localhost:8000 and open `index.html`.
 
 Usage
-- Use the controls to choose number of rows (1–20) and features (2–5).
-- Choose the value range for `X`. `Y` is derived from `w·X + b` with moderate noise.
+- Use the controls to choose number of rows (1–20) and features (1–5).
+- Values are small integers (0–9) for `X`. `Y` is derived from `w·X + b` with moderate noise.
 - Click “New Question” to regenerate.
 - Copy the CSV, compute predictions using the shown weights and bias, then compute the MSE.
 - Click “Reveal Answer” to see the MSE.
 
 Notes
 - The CSV header is `X1,...,Xk,Y` and the last column is always the target `Y`.
-- Numbers are small integers or one-decimal floats to make calculations manageable.
+- `X` values use small integers; `Y` may include one-decimal floats due to noise.
 - Datasets are randomly generated; results will vary per question. With built-in noise, MSE is generally non-zero.
+- Weights and bias are never zero to avoid trivial predictions.
 
 File
 - [index.html](index.html)
